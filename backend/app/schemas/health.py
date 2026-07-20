@@ -24,6 +24,7 @@ class HealthDocumentExtraction(BaseModel):
     medications: list[MedicationExtract] = Field(default_factory=list, description="List of medications found in the text")
     vitals: list[VitalExtract] = Field(default_factory=list, description="List of vitals, lab results, or measurements found in the text")
     conditions: list[ConditionExtract] = Field(default_factory=list, description="List of diagnoses, diseases, or conditions mentioned")
+    red_flags: list[str] = Field(default_factory=list, description="List of critical life-threatening warnings or severe abnormal values requiring immediate medical attention")
     summary: str = Field(description="A brief 1-2 sentence medical summary of the document")
 
 class RiskPrediction(BaseModel):

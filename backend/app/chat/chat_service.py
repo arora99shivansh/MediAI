@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
@@ -56,7 +57,7 @@ class ChatService:
         
         return chat, matches, prompt, agent_name
 
-    async def save_streamed_response(self, chat_doc: dict, user_message: str, answer: str, matches: list[dict]) -> None:
+    async def save_streamed_response(self, chat_doc: dict, user_message: str, answer: str, matches: list[dict], suggestions: list[str] | None = None) -> None:
         now = datetime.now(UTC)
         await self.db.chat_history.update_one(
             {"_id": chat_doc["_id"]},
@@ -65,7 +66,7 @@ class ChatService:
                     "messages": {
                         "$each": [
                             {"role": "user", "content": user_message, "created_at": now, "citations": []},
-                            {"role": "assistant", "content": answer, "created_at": now, "citations": matches},
+                            {"role": "assistant", "content": answer, "created_at": now, "citations": matches, "suggestions": suggestions or []},
                         ]
                     }
                 },
@@ -131,3 +132,55 @@ class ChatService:
     async def search_chats(self, query: str, user_id: str) -> list[dict]:
         chats = await self.db.chat_history.find({"user_id": user_id, "$text": {"$search": query}}, {"score": {"$meta": "textScore"}, "messages": 0}).to_list(50)
         return [serialize_document(chat) for chat in chats]
+
+    async def generate_starter_suggestions(self, user_id: str) -> list[str]:
+        profile_doc = await self.db.risk_profiles.find_one({"user_id": user_id})
+        profile = profile_doc.get("profile", {}) if profile_doc else {}
+        prompt = (
+            "You are a clinical AI assistant helping a patient. Based on their profile below, "
+            "generate exactly 3 highly relevant and helpful questions they could ask you to start the conversation. "
+            "The questions should be short, friendly, and directly related to their health data. "
+            "Return ONLY a JSON object containing a 'suggestions' key which maps to an array of 3 string questions.\n\n"
+            f"Patient Profile: {profile}"
+        )
+        try:
+            if not self.llm.client:
+                return []
+            response = await self.llm.client.chat.completions.create(
+                model=self.llm.settings.groq_model,
+                messages=[
+                    {"role": "system", "content": "You are a clinical AI. Output a valid JSON object with a 'suggestions' array of strings."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.7,
+            )
+            data = json.loads(response.choices[0].message.content)
+            return data.get("suggestions", [])[:3]
+        except Exception:
+            return ["What do my latest lab results mean?", "How can I improve my health score?", "Are there any interactions with my medications?"]
+
+    async def generate_follow_up_suggestions(self, chat_history: list[dict], last_response: str) -> list[str]:
+        context = "\n".join([f"{m['role']}: {m['content']}" for m in chat_history[-4:]])
+        prompt = (
+            "You are a clinical AI assistant. Based on the recent conversation history, "
+            "suggest exactly 3 logical follow-up questions the patient could ask next to learn more or clarify. "
+            "Return ONLY a JSON object containing a 'suggestions' key which maps to an array of 3 string questions.\n\n"
+            f"Conversation History:\n{context}\n\nAI's Last Response:\n{last_response}"
+        )
+        try:
+            if not self.llm.client:
+                return []
+            response = await self.llm.client.chat.completions.create(
+                model=self.llm.settings.groq_model,
+                messages=[
+                    {"role": "system", "content": "You are a clinical AI. Output a valid JSON object with a 'suggestions' array of strings."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.7,
+            )
+            data = json.loads(response.choices[0].message.content)
+            return data.get("suggestions", [])[:3]
+        except Exception:
+            return []

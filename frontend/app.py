@@ -5,6 +5,7 @@ import json
 import os
 from datetime import datetime
 
+import pandas as pd
 import plotly.express as px
 import requests
 import streamlit as st
@@ -350,6 +351,35 @@ hr { border-color: var(--border) !important; margin: 1.5rem 0 !important; }
 [data-testid="stSidebar"] .stRadio > div > label > div:last-child p {
   margin: 0 !important; font-size: inherit !important; color: inherit !important;
 }
+
+/* ── Suggestion Pills ── */
+.suggestion-wrap { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.8rem; }
+.suggestion-pill {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.45rem 0.9rem; border-radius: 100px;
+  background: var(--surface-2); border: 1px solid var(--border-mid);
+  color: var(--text); font-size: 0.82rem; font-weight: 500;
+  cursor: pointer; transition: all 0.2s ease; text-decoration: none;
+}
+.suggestion-pill:hover { background: var(--accent-dim); border-color: rgba(10,132,255,0.3); color: var(--accent); transform: translateY(-1px); }
+
+/* ── Emergency Banner ── */
+.emergency-banner {
+  background: rgba(255, 59, 48, 0.1); border: 1px solid rgba(255, 59, 48, 0.4);
+  border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+  display: flex; align-items: flex-start; gap: 1rem;
+}
+.emergency-icon { font-size: 1.5rem; line-height: 1; margin-top: 0.1rem; }
+.emergency-content { flex: 1; }
+.emergency-title { color: #ff3b30; font-weight: 600; font-size: 0.95rem; margin: 0 0 0.25rem 0 !important; }
+.emergency-text { color: var(--text); font-size: 0.9rem; margin: 0 !important; line-height: 1.4; }
+.emergency-actions { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
+.emergency-btn {
+  background: rgba(255, 59, 48, 0.1); color: #ff3b30; border: none;
+  padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-block;
+}
+.emergency-btn:hover { background: rgba(255, 59, 48, 0.2); }
 </style>
 """
 
@@ -365,6 +395,7 @@ def _init() -> None:
         "active_chat_id": None,
         "messages": [],
         "language": "auto",
+        "pending_prompt": None,
     }
     for k, v in defaults.items():
         st.session_state.setdefault(k, v)
@@ -758,15 +789,36 @@ def chat_view() -> None:
             '</p>'
             '</div>'
         )
+        if "starter_suggestions" not in st.session_state:
+            with st.spinner("Analyzing your profile for suggestions..."):
+                st.session_state.starter_suggestions = api("GET", "/chat/suggestions", silent=True) or []
+        
+        if st.session_state.starter_suggestions:
+            st.markdown("<p style='font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;'><b>Suggested for you:</b></p>", unsafe_allow_html=True)
+            for i, suggestion in enumerate(st.session_state.starter_suggestions):
+                if st.button(suggestion, key=f"starter_sug_{i}", use_container_width=True):
+                    st.session_state.pending_prompt = suggestion
+                    st.rerun()
 
-    for msg in st.session_state.messages:
+    for idx, msg in enumerate(st.session_state.messages):
         avatar = "🧑‍⚕️" if msg["role"] == "user" else "⚕️"
         with st.chat_message(msg["role"], avatar=avatar):
             st.markdown(msg["content"])
             if msg.get("citations"):
                 st.html(_citations_block(msg["citations"]))
+            
+            if msg["role"] == "assistant" and msg.get("suggestions") and idx == len(st.session_state.messages) - 1:
+                st.markdown("<p style='font-size:0.75rem;color:var(--text-muted);margin-top:0.8rem;'><b>Follow-up questions:</b></p>", unsafe_allow_html=True)
+                for i, sug in enumerate(msg["suggestions"]):
+                    if st.button(sug, key=f"sug_{idx}_{i}", use_container_width=True):
+                        st.session_state.pending_prompt = sug
+                        st.rerun()
 
     prompt = st.chat_input("Ask about your documents, symptoms, medications, or lab values…")
+    if st.session_state.pending_prompt:
+        prompt = st.session_state.pending_prompt
+        st.session_state.pending_prompt = None
+
     if not prompt:
         return
 
@@ -800,6 +852,7 @@ def chat_view() -> None:
                     return
                 answer = ""
                 citations: list[dict] = []
+                suggestions: list[str] = []
                 for raw_line in response.iter_lines():
                     if not raw_line or not raw_line.startswith(b"data: "):
                         continue
@@ -810,6 +863,7 @@ def chat_view() -> None:
                     if event.get("done"):
                         st.session_state.active_chat_id = event["chat_id"]
                         citations = event.get("citations", [])
+                        suggestions = event.get("suggestions", [])
                 stream_area.markdown(answer)
         except requests.exceptions.Timeout:
             st.error("The response timed out. Try rephrasing your question or try again shortly.")
@@ -826,7 +880,9 @@ def chat_view() -> None:
             "content": answer,
             "created_at": datetime.utcnow().isoformat(),
             "citations": citations,
+            "suggestions": suggestions,
         })
+        st.rerun()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1018,8 +1074,6 @@ def _symptoms_standalone_view() -> None:
 
     with sym_right:
         if symptoms:
-            import pandas as pd
-            import plotly.express as px
             df_sym = pd.DataFrame(symptoms)
             if "severity" in df_sym.columns and "date" in df_sym.columns:
                 fig_sym = px.scatter(
@@ -1035,7 +1089,6 @@ def _symptoms_standalone_view() -> None:
                 st.plotly_chart(fig_sym, use_container_width=True, key="symptom_standalone")
 
     if symptoms:
-        import pandas as pd
         st.html('<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#636366;padding:1.5rem 0 .5rem;">Symptom History</p>')
         df_hist = pd.DataFrame(symptoms)[["date", "symptom", "severity", "notes"]]
         st.dataframe(df_hist, hide_index=True, use_container_width=True)

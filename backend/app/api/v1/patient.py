@@ -1,12 +1,12 @@
 from datetime import datetime, UTC
 from typing import Annotated
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.auth.dependencies import get_current_user
 from app.database.mongo import get_db
-from app.utils.object_id import serialize_document
+from app.utils.object_id import serialize_document, object_id
 
 router = APIRouter(tags=["Patient"])
 
@@ -59,3 +59,22 @@ async def log_symptom(
 async def get_symptoms(user: Annotated[dict, Depends(get_current_user)], db: Annotated[AsyncIOMotorDatabase, Depends(get_db)]) -> list[dict]:
     logs = await db.symptom_logs.find({"user_id": user["_id"]}).sort("created_at", -1).to_list(100)
     return [serialize_document(l) for l in logs]
+
+@router.get("/patient/alerts")
+async def get_alerts(user: Annotated[dict, Depends(get_current_user)], db: Annotated[AsyncIOMotorDatabase, Depends(get_db)]) -> list[dict]:
+    alerts = await db.patient_alerts.find({"user_id": user["_id"], "resolved": False}).sort("created_at", -1).to_list(100)
+    return [serialize_document(a) for a in alerts]
+
+@router.post("/patient/alerts/{alert_id}/resolve")
+async def resolve_alert(
+    alert_id: str,
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)]
+) -> dict:
+    result = await db.patient_alerts.update_one(
+        {"_id": object_id(alert_id), "user_id": user["_id"]},
+        {"$set": {"resolved": True}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"status": "resolved"}

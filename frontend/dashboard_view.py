@@ -414,6 +414,29 @@ def render_dashboard(api_client: Callable, user: dict) -> None:
     has_data = bool(twin) or bool(timeline) or bool(meds)
 
     # ══════════════════════════════════════════════
+    # EMERGENCY ALERTS
+    # ══════════════════════════════════════════════
+    alerts = api_client("GET", "/patient/alerts", silent=True) or []
+    if alerts:
+        for alert in alerts:
+            st.markdown(
+                f'''
+                <div class="emergency-banner">
+                    <div class="emergency-icon">⚠️</div>
+                    <div class="emergency-content">
+                        <p class="emergency-title">Critical Health Alert</p>
+                        <p class="emergency-text">{alert["message"]}</p>
+                    </div>
+                </div>
+                ''',
+                unsafe_allow_html=True
+            )
+            if st.button("Acknowledge & Dismiss", key=f"dismiss_alert_{alert['_id']}", use_container_width=True):
+                api_client("POST", f"/patient/alerts/{alert['_id']}/resolve")
+                st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════
     # SECTION 1 — Welcome header + Quick actions
     # ══════════════════════════════════════════════
     greeting_text = f"{_greeting()}, {first_name} 👋"

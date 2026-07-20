@@ -29,10 +29,18 @@ async def stream_chat(payload: ChatRequest, user: Annotated[dict, Depends(get_cu
         async for token in service.llm.stream(prompt, history):
             answer_parts.append(token)
             yield f"data: {json.dumps({'token': token})}\n\n"
-        await service.save_streamed_response(chat_doc, payload.message, "".join(answer_parts), matches)
-        yield f"data: {json.dumps({'done': True, 'chat_id': str(chat_doc['_id']), 'citations': matches, 'agent': agent_name})}\n\n"
+        
+        answer_full = "".join(answer_parts)
+        suggestions = await service.generate_follow_up_suggestions(history, answer_full)
+        await service.save_streamed_response(chat_doc, payload.message, answer_full, matches, suggestions)
+        yield f"data: {json.dumps({'done': True, 'chat_id': str(chat_doc['_id']), 'citations': matches, 'agent': agent_name, 'suggestions': suggestions})}\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream")
+
+
+@router.get("/chat/suggestions")
+async def get_chat_suggestions(user: Annotated[dict, Depends(get_current_user)], db: Annotated[AsyncIOMotorDatabase, Depends(get_db)]) -> list[str]:
+    return await ChatService(db).generate_starter_suggestions(user["_id"])
 
 
 @router.get("/chat/history")

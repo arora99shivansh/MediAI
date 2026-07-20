@@ -28,6 +28,7 @@ class HealthService:
             '  "medications": [{"name": "string", "dosage": "string", "frequency": "string", "duration": "string or null", "reason": "string or null"}],\n'
             '  "vitals": [{"name": "string", "value": "string", "unit": "string or null", "status": "string or null"}],\n'
             '  "conditions": [{"name": "string", "status": "string or null"}],\n'
+            '  "red_flags": ["string"],\n'
             '  "summary": "1-2 sentence summary"\n'
             "}\n\n"
             f"Document Text:\n{full_text[:6000]}" # Truncate to avoid context limits
@@ -103,7 +104,20 @@ class HealthService:
             if med_docs:
                 await self.db.medications.insert_many(med_docs)
                 
-            logger.info(f"Successfully extracted {len(med_docs)} meds and {len(timeline_docs)} vitals", extra={"user_id": user_id})
+            # Save red flags as alerts
+            alert_docs = []
+            for flag in extracted_data.red_flags:
+                alert_docs.append({
+                    "user_id": user_id,
+                    "document_id": document_id,
+                    "message": flag,
+                    "resolved": False,
+                    "created_at": now
+                })
+            if alert_docs:
+                await self.db.patient_alerts.insert_many(alert_docs)
+                
+            logger.info(f"Successfully extracted {len(med_docs)} meds, {len(timeline_docs)} vitals, and {len(alert_docs)} alerts", extra={"user_id": user_id})
             
             # Phase 2: Update Digital Twin and Risks
             await self._update_digital_twin(user_id, extracted_data, now)
@@ -139,6 +153,8 @@ class HealthService:
         
         try:
             from app.schemas.health import DigitalTwinUpdate
+            if not self.llm.client:
+                return
             response = await self.llm.client.chat.completions.create(
                 model=self.llm.settings.groq_model,
                 messages=[
