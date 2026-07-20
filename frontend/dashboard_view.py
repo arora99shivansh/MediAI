@@ -446,6 +446,11 @@ def render_dashboard(api_client: Callable, user: dict) -> None:
         f'<div class="welcome-wrap">'
         f'<h1 class="welcome-greeting">{greeting_text}</h1>'
         f'<p class="welcome-sub">{sub_text}</p>'
+        f'<div class="qa-row">'
+        f'<a href="#" class="qa-pill"><span class="qa-icon">🤖</span> Talk to AI Doctor</a>'
+        f'<a href="#" class="qa-pill"><span class="qa-icon">📤</span> Upload Report</a>'
+        f'<a href="#" class="qa-pill"><span class="qa-icon">🩺</span> Log Symptom</a>'
+        f'</div>'
         f'</div>'
     )
 
@@ -663,7 +668,7 @@ def render_dashboard(api_client: Callable, user: dict) -> None:
     # ══════════════════════════════════════════════
     # SECTION 6 — Health Timeline (chart + events)
     # ══════════════════════════════════════════════
-    st.html('<p class="dash-section">Health Timeline</p>')
+    st.html('<p class="dash-section">Health Timeline <span style="float:right; font-size:0.75rem; color:#30D158; padding: 0.2rem 0.6rem; background:rgba(48,209,88,0.15); border-radius:100px; font-weight:600; display:inline-flex; align-items:center; gap:0.4rem; border:1px solid rgba(48,209,88,0.3);"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#30D158; animation: pulseGlow 2s infinite;"></span> Live Sync Active</span></p>')
 
     if timeline:
         tl_left, tl_right = st.columns([3, 2])

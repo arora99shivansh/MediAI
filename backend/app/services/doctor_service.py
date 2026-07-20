@@ -19,9 +19,13 @@ class DoctorService:
         self.db = db
         self.llm = GroqLLMService()
 
-    async def get_patient_list(self) -> list[dict]:
-        """Fetch all patients for the doctor dashboard."""
-        patients_cursor = self.db.users.find({"role": "patient"}, {"password_hash": 0})
+    async def get_patient_list(self, doctor_id: str | None = None) -> list[dict]:
+        """Fetch patients for the doctor dashboard (only assigned ones if doctor_id provided)."""
+        query = {"role": "patient"}
+        if doctor_id:
+            query["assigned_doctor_id"] = doctor_id
+            
+        patients_cursor = self.db.users.find(query, {"password_hash": 0})
         patients = await patients_cursor.to_list(100)
         
         result = []
@@ -50,11 +54,33 @@ class DoctorService:
             })
         return result
 
-    async def get_patient_overview(self, patient_id: str) -> PatientOverviewResponse:
-        """Fetch a comprehensive 360 view of a patient."""
-        patient = await self.db.users.find_one({"_id": object_id(patient_id), "role": "patient"})
+    async def search_all_patients(self) -> list[dict]:
+        """Fetch all patients for global directory search."""
+        # Reuse existing logic without filtering by doctor
+        return await self.get_patient_list(doctor_id=None)
+
+    async def assign_patient(self, doctor_id: str, patient_id: str) -> dict:
+        """Assign a patient to a doctor."""
+        p_obj = object_id(patient_id)
+        d_obj = object_id(doctor_id)
+        
+        patient = await self.db.users.find_one({"_id": p_obj, "role": "patient"})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
+            
+        await self.db.users.update_one({"_id": p_obj}, {"$set": {"assigned_doctor_id": doctor_id}})
+        await self.db.users.update_one({"_id": d_obj, "role": "doctor"}, {"$addToSet": {"assigned_patient_ids": patient_id}})
+        return {"status": "success", "message": f"Patient {patient.get('full_name')} assigned successfully"}
+
+    async def get_patient_overview(self, patient_id: str, doctor_id: str | None = None) -> PatientOverviewResponse:
+        """Fetch a comprehensive 360 view of a patient."""
+        query = {"_id": object_id(patient_id), "role": "patient"}
+        if doctor_id:
+            query["assigned_doctor_id"] = doctor_id
+            
+        patient = await self.db.users.find_one(query)
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found or not assigned to you")
 
         uid_str = str(patient["_id"])
         
@@ -86,12 +112,26 @@ class DoctorService:
             active_medications=[{k: v for k, v in m_doc.items() if k != "_id"} for m_doc in meds],
         )
 
-    async def generate_doctor_ai_content(self, patient_id: str, task_type: str, additional_context: str | None) -> str:
-        """Use Doctor AI to generate clinical content (SOAP notes, summaries, etc)."""
-        overview = await self.get_patient_overview(patient_id)
+    async def generate_doctor_ai_content(self, patient_id: str, task_type: str, additional_context: str | None, doctor_id: str | None = None) -> str:
+        """Use Doctor AI to generate clinical content with RAG context."""
+        overview = await self.get_patient_overview(patient_id, doctor_id)
         
         # Convert overview to JSON string for context
         context_data = overview.model_dump_json(indent=2)
+        
+        # Perform RAG search for additional context
+        from app.rag.rag_service import RAGService
+        rag = RAGService(self.db)
+        
+        # Formulate query based on task and context
+        search_query = f"{task_type} {additional_context or ''} {overview.chronic_conditions}"
+        matches = await rag.search(search_query, patient_id, top_k=5)
+        
+        doc_context = ""
+        if matches:
+            doc_context = "\n\nRelevant Medical Evidence from Patient Records:\n" + "\n".join(
+                f"- Source ({m.get('filename')} p.{m.get('page')}): {m.get('text')}" for m in matches
+            )
         
         prompts = {
             "soap_note": (
@@ -116,7 +156,7 @@ class DoctorService:
         if additional_context:
             system_instruction += f"\n\nDoctor's specific instructions: {additional_context}"
             
-        full_prompt = f"{system_instruction}\n\nPatient Data:\n{context_data}\n\nPlease generate the requested output in Markdown format."
+        full_prompt = f"{system_instruction}\n\nStructured Patient Data:\n{context_data}{doc_context}\n\nPlease generate the requested output in Markdown format."
 
         if not self.llm.client:
             return "AI service is currently unavailable."
@@ -135,11 +175,14 @@ class DoctorService:
             logger.error("Failed to generate Doctor AI content", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to generate AI content.")
 
-    async def save_clinical_note(self, note: ClinicalNoteCreate, doctor_id: str) -> dict:
+    async def save_clinical_note(self, note: ClinicalNoteCreate, creator_id: str, doctor_id: str | None = None) -> dict:
+        # Verify access by trying to fetch the overview
+        await self.get_patient_overview(note.patient_id, doctor_id)
+        
         now = datetime.now(UTC)
         doc = {
             "patient_id": note.patient_id,
-            "doctor_id": doctor_id,
+            "doctor_id": creator_id,
             "title": note.title,
             "content": note.content,
             "note_type": note.note_type,
@@ -150,9 +193,9 @@ class DoctorService:
         doc["_id"] = str(result.inserted_id)
         return doc
 
-    async def get_clinical_notes(self, patient_id: str) -> list[dict]:
+    async def get_clinical_notes(self, patient_id: str, doctor_id: str | None = None) -> list[dict]:
+        # Verify access
+        await self.get_patient_overview(patient_id, doctor_id)
+        
         notes = await self.db.clinical_notes.find({"patient_id": patient_id}).sort("created_at", -1).to_list(100)
-        for n in notes:
-            n["id"] = str(n["_id"])
-            n.pop("_id", None)
-        return notes
+        return [{**n, "id": str(n.pop("_id", ""))} for n in notes]

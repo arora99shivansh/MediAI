@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-
+import plotly.express as px
 
 def render_doctor_dashboard(api_client, user: dict) -> None:
     """Main entry point for the Doctor Portal UI."""
@@ -59,34 +59,59 @@ def _render_directory(api) -> None:
     </div>
     """)
     
-    patients = api("GET", "/doctor/patients", silent=True) or []
+    tab_my, tab_search = st.tabs(["👥 My Patients", "🔍 Global Directory"])
     
-    if not patients:
-        st.info("No patients found in the system.")
-        return
-        
-    for p in patients:
-        c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
-        with c1:
-            st.html(f"""
-            <div class="patient-info">
-                <h4>{p.get('full_name') or 'Unknown Patient'}</h4>
-                <p>{p.get('email', '')}</p>
-            </div>
-            """)
-        with c2:
-            age = p.get('age') or '--'
-            gender = p.get('gender') or '--'
-            st.html(f"<p style='color:var(--text-muted);font-size:0.9rem;margin-top:0.5rem;'>{age} y/o • {gender}</p>")
-        with c3:
-            risk = p.get("risk_level", "Low")
-            st.html(f"<span class='risk-{risk}' style='display:inline-block;margin-top:0.5rem;'>{risk} Risk</span>")
-        with c4:
-            if st.button("View Chart", key=f"btn_{p['id']}", use_container_width=True):
-                st.session_state.selected_patient = p
-                st.session_state.doc_nav = "patient_detail"
-                st.rerun()
-        st.html("<hr style='margin: 0.5rem 0; border-color: var(--surface-2);'>")
+    with tab_my:
+        patients = api("GET", "/doctor/patients", silent=True) or []
+        if not patients:
+            st.info("No patients assigned to you yet. Use the Global Directory to assign patients.")
+        else:
+            for p in patients:
+                c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+                with c1:
+                    st.html(f"""
+                    <div class="patient-info">
+                        <h4>{p.get('full_name') or 'Unknown Patient'}</h4>
+                        <p>{p.get('email', '')}</p>
+                    </div>
+                    """)
+                with c2:
+                    age = p.get('age') or '--'
+                    gender = p.get('gender') or '--'
+                    st.html(f"<p style='color:var(--text-muted);font-size:0.9rem;margin-top:0.5rem;'>{age} y/o • {gender}</p>")
+                with c3:
+                    risk = p.get("risk_level", "Low")
+                    st.html(f"<span class='risk-{risk}' style='display:inline-block;margin-top:0.5rem;'>{risk} Risk</span>")
+                with c4:
+                    if st.button("View Chart", key=f"btn_view_{p['id']}", use_container_width=True):
+                        st.session_state.selected_patient = p
+                        st.session_state.doc_nav = "patient_detail"
+                        st.rerun()
+                st.html("<hr style='margin: 0.5rem 0; border-color: var(--surface-2);'>")
+
+    with tab_search:
+        st.markdown("##### Global Patient Registry")
+        all_patients = api("GET", "/doctor/patients/all", silent=True) or []
+        if not all_patients:
+            st.info("No patients found in the system.")
+        else:
+            for p in all_patients:
+                c1, c2, c3 = st.columns([4, 2, 2])
+                with c1:
+                    st.html(f"""
+                    <div class="patient-info">
+                        <h4>{p.get('full_name') or 'Unknown Patient'}</h4>
+                        <p>{p.get('email', '')}</p>
+                    </div>
+                    """)
+                with c2:
+                    st.html(f"<p style='color:var(--text-muted);font-size:0.9rem;margin-top:0.5rem;'>ID: {p['id'][:8]}...</p>")
+                with c3:
+                    if st.button("Assign to Me", key=f"btn_assign_{p['id']}", use_container_width=True, type="primary"):
+                        api("POST", f"/doctor/patients/{p['id']}/assign")
+                        st.success("Assigned!")
+                        st.rerun()
+                st.html("<hr style='margin: 0.5rem 0; border-color: var(--surface-2);'>")
 
 def _render_patient_detail(api) -> None:
     if st.button("← Back to Directory"):
@@ -128,13 +153,27 @@ def _render_patient_detail(api) -> None:
         else:
             st.write("No chronic conditions documented.")
             
-        st.subheader("Recent Vitals")
+        st.subheader("Vitals Timeline 📈")
         vitals = overview.get("recent_vitals", [])
         if vitals:
             df = pd.DataFrame(vitals)
-            st.dataframe(df, hide_index=True, use_container_width=True)
+            if "date" in df.columns and "vital_name" in df.columns and "value" in df.columns:
+                df["value"] = pd.to_numeric(df["value"], errors="coerce")
+                fig = px.line(
+                    df.dropna(subset=["value"]), 
+                    x="date", y="value", color="vital_name", markers=True,
+                    title="Continuous Vitals Monitoring"
+                )
+                fig.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#F2F2F7"), legend_title_text="Vital Sign",
+                    margin=dict(l=20, r=20, t=40, b=20)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.dataframe(df, hide_index=True, use_container_width=True)
         else:
-            st.write("No vitals recorded.")
+            st.info("No vitals recorded in timeline.")
             
         st.subheader("Current Medications")
         meds = overview.get("active_medications", [])
