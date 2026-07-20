@@ -13,7 +13,7 @@ import streamlit as st
 # Configuration
 # ─────────────────────────────────────────────────────────────────────────────
 
-API_URL: str = os.environ.get("API_URL") or st.secrets.get("API_URL", "http://localhost:8000/api/v1")
+API_URL: str = os.environ.get("API_URL") or st.secrets.get("API_URL", "https://mediai-backend-co2d.onrender.com/api/v1")
 
 st.set_page_config(
     page_title="MediAI · Clinical AI",
