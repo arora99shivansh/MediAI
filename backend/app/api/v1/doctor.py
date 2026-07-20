@@ -11,6 +11,25 @@ from app.services.doctor_service import DoctorService
 router = APIRouter(tags=["Doctor Portal"])
 
 
+@router.get("/search")
+async def search_doctors(
+    city: str | None = None,
+    specialization: str | None = None,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+) -> list[dict]:
+    """Search for doctors by city or specialization."""
+    return await DoctorService(db).search_doctors(city, specialization)
+
+
+@router.get("/profile/{doctor_id}")
+async def get_doctor_profile(
+    doctor_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+) -> dict:
+    """Get public profile of a doctor."""
+    return await DoctorService(db).get_doctor_profile(doctor_id)
+
+
 @router.get("/patients/all")
 async def get_all_patients(
     user: Annotated[dict, Depends(require_roles("doctor", "admin"))],

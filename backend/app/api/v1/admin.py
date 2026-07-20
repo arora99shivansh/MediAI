@@ -77,3 +77,35 @@ async def dashboard(
         "response_time_ms": [{"metric": "llm_average", "value": round(latency, 2)}],
         "api_latency_ms": [{"metric": "available_at", "value": "/metrics"}],
     }
+
+from pydantic import BaseModel
+from app.utils.object_id import object_id
+
+class DoctorStatusUpdate(BaseModel):
+    status: str # "approved", "rejected"
+
+@router.get("/doctors")
+async def get_all_doctors(
+    _: Annotated[dict, Depends(require_roles("admin"))],
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)]
+):
+    """Get all doctors for admin review."""
+    cursor = db.users.find({"role": "doctor"}, {"password_hash": 0}).sort("created_at", -1)
+    doctors = await cursor.to_list(100)
+    for doc in doctors:
+        doc["_id"] = str(doc["_id"])
+    return doctors
+
+@router.put("/doctors/{doctor_id}/status")
+async def update_doctor_status(
+    doctor_id: str,
+    payload: DoctorStatusUpdate,
+    _: Annotated[dict, Depends(require_roles("admin"))],
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)]
+):
+    """Approve or reject a doctor."""
+    await db.users.update_one(
+        {"_id": object_id(doctor_id), "role": "doctor"},
+        {"$set": {"status": payload.status}}
+    )
+    return {"status": "success"}
