@@ -928,12 +928,29 @@ def main() -> None:
 
     user = st.session_state.user or {}
 
-    if user.get("role") == "admin":
-        sidebar()
-        tab_chat, tab_admin = st.tabs(["Clinical Chat", "Admin Dashboard"])
-        with tab_chat:
-            chat_view()
-        with tab_admin:
+    if user.get("role") in ["admin", "doctor"]:
+        # ── Doctor / Admin sidebar with icon navigation ──
+        with st.sidebar:
+            st.html(_brand_html("MediAI Clinical OS"))
+            st.html(_user_card_html(user))
+            st.html('<span class="status-live"><span class="status-dot"></span>Connected</span>')
+
+            st.html('<span class="sidebar-section">Navigation</span>')
+            nav_options = ["👥  Patient Directory", "📈  Analytics & Usage"]
+            nav = st.radio("Nav", nav_options, label_visibility="collapsed", key="nav_radio_doctor")
+
+            st.markdown("---")
+            if st.button("Sign out", use_container_width=True, key="logout_btn_doctor"):
+                if st.session_state.refresh_token:
+                    api("POST", "/auth/logout", json={"refresh_token": st.session_state.refresh_token}, silent=True)
+                st.session_state.clear()
+                st.rerun()
+                
+        # ── Route views ──
+        if nav == "👥  Patient Directory":
+            from doctor_dashboard_view import render_doctor_dashboard
+            render_doctor_dashboard(api, user)
+        elif nav == "📈  Analytics & Usage":
             admin_view()
     else:
         # ── Patient sidebar with icon navigation ──

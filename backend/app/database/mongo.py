@@ -36,6 +36,7 @@ async def connect_to_mongo() -> None:
         await db.medications.create_index([("user_id", 1), ("status", 1)])
         await db.symptom_logs.create_index([("user_id", 1), ("date", -1)])
         await db.health_scores.create_index([("user_id", 1), ("date", -1)])
+        await db.clinical_notes.create_index([("patient_id", 1), ("created_at", -1)])
     except Exception as exc:
         import logging
         logging.getLogger("mediai").warning(
