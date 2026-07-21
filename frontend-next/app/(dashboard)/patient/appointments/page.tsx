@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Calendar, Clock, MapPin, Search } from "lucide-react";
 import Link from "next/link";
@@ -16,7 +16,7 @@ type Appointment = {
   payment_status?: string;
 };
 
-export default function PatientAppointments() {
+function AppointmentsContent() {
   const searchParams = useSearchParams();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,5 +144,13 @@ export default function PatientAppointments() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PatientAppointments() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center text-slate-500">Loading appointments...</div>}>
+      <AppointmentsContent />
+    </Suspense>
   );
 }
