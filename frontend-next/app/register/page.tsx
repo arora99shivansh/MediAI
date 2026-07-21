@@ -47,7 +47,10 @@ export default function RegisterPage() {
         router.push("/login");
       }, 3000);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Registration failed. Email may already be in use.");
+      setError(
+        err.response?.data?.detail || 
+        (err.code === 'ERR_NETWORK' ? "Cannot connect to server. Please try again later." : "Registration failed. Email may already be in use.")
+      );
     } finally {
       setIsLoading(false);
     }

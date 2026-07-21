@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     chunk_size: int = 900
     chunk_overlap: int = 150
 
-    cors_origins: str = "http://localhost:8501,http://127.0.0.1:8501"
+    cors_origins: str = "http://localhost:8501,http://127.0.0.1:8501,http://localhost:3000,https://medi-ai-ochre-nine.vercel.app,https://medi-ai-git-main-arora99shivanshs-projects.vercel.app,https://medi-4djx752kz-arora99shivanshs-projects.vercel.app"
     rate_limit: str = "120/minute"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
