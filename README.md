@@ -1,110 +1,130 @@
-# MediAI
+# DoorDoctor AI
 
-Enterprise AI Medical Assistant powered by Retrieval-Augmented Generation.
+![DoorDoctor AI](https://img.shields.io/badge/Status-Production_Ready-success) ![License](https://img.shields.io/badge/License-MIT-blue)
 
-MediAI lets doctors, medical students, and patients upload medical PDFs, prescriptions, lab reports, DOCX files, and text notes, then ask grounded questions with source citations, chat history, role-based access, multilingual answers, and admin analytics.
+DoorDoctor AI is a complete, production-ready telemedicine and digital healthcare platform built with a modern Next.js frontend and a high-performance FastAPI backend. It seamlessly connects patients with doctors, offering video consultations, AI-powered medical insights, real-time secure messaging, and a fully integrated payment workflow.
 
-## Architecture
+## 🚀 Key Features
 
-```mermaid
-flowchart TD
-    A[Streamlit Frontend] --> B[FastAPI Gateway]
-    B --> C[JWT Auth and RBAC]
-    B --> D[Document Upload API]
-    B --> E[Chat API]
-    D --> F[RAG Service]
-    E --> F
-    F --> G[Document Parsers]
-    F --> H[Recursive Chunker]
-    H --> I[BAAI bge-small Embeddings]
-    I --> J[FAISS Vector Index]
-    F --> K[MongoDB Collections]
-    E --> L[Groq Llama Service]
-    B --> M[Prometheus Metrics]
-    B --> N[Structured Logging]
+### 1. Dual Portal System
+- **Patient Dashboard**: Book appointments, manage health profiles, track timelines, upload clinical reports, and securely chat with doctors.
+- **Doctor Dashboard**: Manage patient queues, approve/reject consultations, access AI-powered diagnostic tools, and configure availability slots.
+
+### 2. AI-Powered Healthcare
+- **Report Analysis**: Patients can upload PDF blood test results or medical reports. The AI automatically parses, summarizes, and explains the results in simple terms.
+- **Clinical Copilot**: Doctors have access to an AI RAG Chatbot trained to assist with clinical workflows and diagnostic suggestions based on uploaded patient histories.
+
+### 3. Integrated Telemedicine
+- **Real-Time Video Consultations**: Fully functional, secure WebRTC/Jitsi-powered video rooms uniquely generated for each confirmed appointment.
+- **Secure Messaging**: WebSocket-powered real-time chat between patients and doctors with end-to-end persistent MongoDB storage.
+
+### 4. Advanced Booking & Payments
+- **Stripe & Razorpay Integration**: Comprehensive payment workflow bridging frontend checkouts with backend webhooks.
+- **Status Lifecycle**: Full appointment state machine (`pending_payment` -> `pending_doctor_approval` -> `accepted` / `rejected` -> `completed`).
+
+### 5. Premium UI/UX
+- Built using **Tailwind CSS** and **Lucide Icons** with a custom "Glassmorphism" and premium clinical aesthetic.
+- Global Notification Centers, Responsive Data Tables, and Skeleton Loaders for asynchronous data.
+
+---
+
+## 🛠️ Technology Stack
+
+### Frontend (Next.js 14)
+- **Framework**: Next.js (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **State & Auth**: Custom React Contexts (JWT Flow)
+- **Icons**: Lucide React
+
+### Backend (FastAPI)
+- **Framework**: FastAPI (Python 3.10+)
+- **Database**: MongoDB (Motor Asyncio)
+- **Authentication**: JWT, Passlib (bcrypt)
+- **AI Integrations**: OpenAI API / LangChain
+- **WebSockets**: FastAPI WebSockets
+
+---
+
+## 📦 Project Structure
+
+```text
+MediAI/
+├── frontend-next/        # Next.js Application
+│   ├── app/              # App Router Pages (Admin, Doctor, Patient)
+│   ├── components/       # Reusable UI Components
+│   ├── contexts/         # Authentication & State
+│   └── lib/              # Axios Interceptors & API configs
+│
+├── backend/              # FastAPI Application
+│   ├── app/
+│   │   ├── api/v1/       # REST Routes (Auth, Appointments, AI, Payments)
+│   │   ├── core/         # Config, Security, JWT
+│   │   ├── models/       # Pydantic Schemas & MongoDB Models
+│   │   └── services/     # Business Logic (Stripe, DB Operations)
+│
+└── README.md             # Project Documentation
 ```
 
-## Features
+---
 
-- Secure auth: register, login, logout, refresh, forgot/reset password, email verification token, bcrypt hashing, protected routes, and doctor/patient/admin roles.
-- RAG: PDF, DOCX, and TXT ingestion, recursive chunking, Hugging Face embeddings, FAISS vector search, top-k retrieval, context-aware prompts, source citations, and hallucination-reduction instructions.
-- Chat: ChatGPT-style Streamlit UI, streaming responses, markdown rendering, typing animation, conversation memory, rename, delete, pin, search, export, and persisted history.
-- Medical intelligence: disease explanations, prescription explanation, lab report analysis, summarization, health tips, diet suggestions, emergency red flags, and medical disclaimer.
-- Admin and analytics: total users, active users, uploaded files, query trends, token usage, storage usage, most asked questions, top diseases, top medicines, response time, and API metrics.
-- Production foundation: async FastAPI, MongoDB Atlas support, Docker Compose, Prometheus metrics, GitHub Actions, Azure App Service startup, CORS, rate limiting, secure headers, and validation.
+## ⚙️ Setup & Installation
 
-## Quick Start
-
+### 1. Clone the repository
 ```bash
-cp .env.example .env
-# Set SECRET_KEY and GROQ_API_KEY in .env
-docker compose up --build
+git clone https://github.com/your-username/doordoctor-ai.git
+cd doordoctor-ai
 ```
 
-- Frontend: `http://localhost:8501`
-- Backend API: `http://localhost:8000`
-- Swagger: `http://localhost:8000/docs`
-- Metrics: `http://localhost:8000/metrics`
-- Prometheus: `http://localhost:9090`
-
-For production-style local execution with MongoDB Atlas:
-
+### 2. Backend Setup
 ```bash
-docker compose -f docker-compose.prod.yml up --build
-```
-
-## Local Backend Development
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate
+cd backend
+python -m venv venv
+source venv/bin/activate  # (or `venv\Scripts\activate` on Windows)
 pip install -r requirements.txt
-set SECRET_KEY=local-secret-key-with-more-than-32-characters
-set MONGODB_URI=mongodb://localhost:27017
-set GROQ_API_KEY=your-groq-key
-uvicorn app.main:app --app-dir backend --reload
 ```
 
-## Local Frontend Development
-
-```bash
-cd frontend
-pip install -r requirements.txt
-streamlit run app.py
-```
-
-## Create Admin User
-
-```bash
-set PYTHONPATH=backend
-set ADMIN_EMAIL=admin@mediai.local
-set ADMIN_PASSWORD=AdminPassword123
-python scripts/create_admin.py
-```
-
-## Test
-
-```bash
-set SECRET_KEY=test-secret-key-with-more-than-32-characters
-pytest backend/tests
-coverage run -m pytest backend/tests
-coverage report
-```
-
-## MongoDB Atlas
-
-Create a free Atlas cluster, add the application IP allowlist, create a database user, and set:
-
+Create a `.env` file in the `backend` directory:
 ```env
-MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority
-MONGODB_DATABASE=mediai
+MONGODB_URL=mongodb+srv://<username>:<password>@cluster.mongodb.net/?retryWrites=true&w=majority
+SECRET_KEY=your_super_secret_jwt_key
+OPENAI_API_KEY=your_openai_api_key
+STRIPE_SECRET_KEY=your_stripe_secret
 ```
 
-## CI/CD
+Run the backend server:
+```bash
+uvicorn app.main:app --reload --port 8000
+```
 
-- `.github/workflows/ci.yml` runs tests, coverage, and Docker image builds.
-- `.github/workflows/azure-deploy.yml` builds, pushes, and deploys backend/frontend containers when repository variable `AZURE_DEPLOY_ENABLED=true` and the documented Azure secrets are configured.
+### 3. Frontend Setup
+```bash
+cd ../frontend-next
+npm install
+```
 
-## Safety
+Create a `.env.local` file in the `frontend-next` directory:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+```
 
-MediAI provides educational and document-grounded medical information. It does not diagnose, prescribe, or replace licensed clinicians. Prompts require red-flag guidance and a professional-care disclaimer in medical answers.
+Run the development server:
+```bash
+npm run dev
+```
+
+---
+
+## 🔒 Security & Compliance
+
+- **JWT Authentication**: Short-lived access tokens with secure local storage implementations.
+- **Role-Based Access Control (RBAC)**: Strict API middleware ensuring patients cannot access doctor routes and vice versa.
+- **Data Privacy**: MongoDB architecture isolates sensitive PII.
+
+---
+
+## 👨‍💻 Contributing
+This project is currently in Production Stabilization. Please refer to the `CHANGELOG.md` and `PROJECT_COMPLETION_REPORT.md` for recent architectural decisions.
+
+## 📄 License
+This project is licensed under the MIT License.
