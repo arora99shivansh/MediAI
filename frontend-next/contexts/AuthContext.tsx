@@ -7,6 +7,7 @@ import api from '@/lib/api';
 
 interface User {
   id: string;
+  _id?: string;
   email: string;
   full_name: string;
   role: 'patient' | 'doctor' | 'admin';
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .then(res => {
           setUser({
             id: res.data._id || res.data.id || 'temp-id',
+            _id: res.data._id || res.data.id || 'temp-id',
             email: res.data.email,
             full_name: res.data.full_name || 'User',
             role: role as 'patient' | 'doctor' | 'admin',
@@ -47,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // If /me fails, use basic info from cookies
           setUser({
             id: 'temp-id',
+            _id: 'temp-id',
             email: 'user@example.com',
             full_name: 'Authenticated User',
             role: role as 'patient' | 'doctor',
@@ -65,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     Cookies.set('user_role', role);
     setUser({
       id: 'temp-id',
+      _id: 'temp-id',
       email: 'user@example.com',
       full_name: 'Authenticated User',
       role: role as 'patient' | 'doctor',
