@@ -18,14 +18,9 @@ export default function DoctorBookingProfile() {
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Mock Slots
-  const timeSlots = ["09:00 AM", "10:30 AM", "01:00 PM", "03:30 PM", "05:00 PM"];
-  // Mock Dates (Next 5 days)
-  const availableDates = Array.from({length: 5}, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i + 1);
-    return d.toISOString().split('T')[0];
-  });
+  // Available Dates and Slots will be derived from doctor profile response
+  const availableDates = doctor?.available_dates || [];
+  const timeSlots = selectedDate ? (doctor?.time_slots_by_date?.[selectedDate] || []) : [];
 
   useEffect(() => {
     if (params.id) fetchDoctor();
@@ -163,21 +158,25 @@ export default function DoctorBookingProfile() {
                       <label className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2 mt-4">
                         <Clock className="w-4 h-4" /> Available Slots
                       </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {timeSlots.map(slot => (
-                          <button
-                            key={slot}
-                            onClick={() => setSelectedSlot(slot)}
-                            className={`p-2 rounded-lg text-sm font-medium border transition-colors ${
-                              selectedSlot === slot 
-                                ? "bg-blue-600 border-blue-600 text-white" 
-                                : "bg-white border-slate-200 text-slate-700 hover:border-blue-500"
-                            }`}
-                          >
-                            {slot}
-                          </button>
-                        ))}
-                      </div>
+                      {timeSlots.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {timeSlots.map((slot: string) => (
+                            <button
+                              key={slot}
+                              onClick={() => setSelectedSlot(slot)}
+                              className={`p-2 rounded-lg text-sm font-medium border transition-colors ${
+                                selectedSlot === slot 
+                                  ? "bg-blue-600 border-blue-600 text-white" 
+                                  : "bg-white border-slate-200 text-slate-700 hover:border-blue-500"
+                              }`}
+                            >
+                              {slot}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-red-500">No slots available for this date.</p>
+                      )}
                     </div>
                   )}
 

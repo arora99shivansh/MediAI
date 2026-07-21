@@ -5,7 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.auth.dependencies import get_current_user, require_roles
 from app.database.mongo import get_db
-from app.schemas.doctor import PatientOverviewResponse, DoctorAIGenerateRequest, ClinicalNoteCreate, ClinicalNoteResponse
+from app.schemas.doctor import PatientOverviewResponse, DoctorAIGenerateRequest, ClinicalNoteCreate, ClinicalNoteResponse, DoctorProfileUpdate, DoctorProfileResponse
 from app.services.doctor_service import DoctorService
 
 router = APIRouter(tags=["Doctor Portal"])
@@ -21,13 +21,24 @@ async def search_doctors(
     return await DoctorService(db).search_doctors(city, specialization)
 
 
-@router.get("/profile/{doctor_id}")
+@router.get("/profile/{doctor_id}", response_model=DoctorProfileResponse)
 async def get_doctor_profile(
     doctor_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db)
-) -> dict:
-    """Get public profile of a doctor."""
+):
+    """Get public profile of a doctor including calculated available slots."""
     return await DoctorService(db).get_doctor_profile(doctor_id)
+
+
+@router.put("/profile", response_model=dict)
+async def update_doctor_profile(
+    data: DoctorProfileUpdate,
+    user: Annotated[dict, Depends(require_roles("doctor"))],
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Update doctor profile and availability."""
+    doctor_id = str(user["_id"])
+    return await DoctorService(db).update_doctor_profile(doctor_id, data)
 
 
 @router.get("/patients/all")
@@ -107,3 +118,4 @@ async def get_clinical_notes(
     """Get all clinical notes for a patient."""
     doctor_id = str(user["_id"]) if user.get("role") == "doctor" else None
     return await DoctorService(db).get_clinical_notes(patient_id, doctor_id)
+

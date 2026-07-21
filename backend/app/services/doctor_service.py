@@ -19,6 +19,89 @@ class DoctorService:
         self.db = db
         self.llm = GroqLLMService()
 
+    async def search_doctors(self, city: str | None = None, specialization: str | None = None) -> list[dict]:
+        """Search for doctors."""
+        query: dict[str, Any] = {"role": "doctor"}
+        if city:
+            query["city"] = {"$regex": f"^{city}$", "$options": "i"}
+        if specialization:
+            query["specialization"] = {"$regex": f"^{specialization}$", "$options": "i"}
+            
+        cursor = self.db.users.find(query, {"password_hash": 0})
+        doctors = await cursor.to_list(100)
+        
+        result = []
+        for doc in doctors:
+            doc["_id"] = str(doc["_id"])
+            result.append(doc)
+        return result
+
+    async def get_doctor_profile(self, doctor_id: str) -> dict:
+        """Get profile of a doctor and calculate available slots for the next 7 days."""
+        doctor = await self.db.users.find_one({"_id": object_id(doctor_id), "role": "doctor"})
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+            
+        doctor["_id"] = str(doctor["_id"])
+        
+        # Calculate availability for the next 7 days based on weekly schedule
+        import datetime
+        from datetime import timedelta
+        
+        schedule = doctor.get("availability", {})
+        available_dates = []
+        time_slots_by_date = {}
+        
+        if schedule:
+            today = datetime.datetime.now()
+            # Find booked appointments to exclude them
+            booked_cursor = self.db.appointments.find({
+                "doctor_id": doctor["_id"],
+                "status": {"$in": ["pending", "confirmed", "pending_payment"]}
+            })
+            booked_appts = await booked_cursor.to_list(500)
+            booked_map = {} # date_string: set of booked slots
+            for b in booked_appts:
+                if b["date"] not in booked_map:
+                    booked_map[b["date"]] = set()
+                booked_map[b["date"]].add(b["slot"])
+                
+            for i in range(1, 8):
+                d = today + timedelta(days=i)
+                day_name = d.strftime("%A")
+                date_str = d.strftime("%Y-%m-%d")
+                
+                day_slots = schedule.get(day_name, [])
+                if day_slots:
+                    # Filter out already booked slots
+                    booked_for_day = booked_map.get(date_str, set())
+                    free_slots = [s for s in day_slots if s not in booked_for_day]
+                    
+                    if free_slots:
+                        available_dates.append(date_str)
+                        time_slots_by_date[date_str] = free_slots
+                        
+        doctor["available_dates"] = available_dates
+        doctor["time_slots_by_date"] = time_slots_by_date
+        
+        return doctor
+
+    async def update_doctor_profile(self, doctor_id: str, data: Any) -> dict:
+        """Update doctor's public profile and weekly schedule."""
+        update_data = data.model_dump(exclude_unset=True)
+        
+        if not update_data:
+            return {"status": "no changes"}
+            
+        result = await self.db.users.update_one(
+            {"_id": object_id(doctor_id), "role": "doctor"},
+            {"$set": update_data}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+            
+        return {"status": "success"}
+
     async def get_patient_list(self, doctor_id: str | None = None) -> list[dict]:
         """Fetch patients for the doctor dashboard (only assigned ones if doctor_id provided)."""
         query = {"role": "patient"}

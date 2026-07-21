@@ -33,3 +33,27 @@ class PatientOverviewResponse(BaseModel):
     recent_vitals: list[dict] = []
     active_medications: list[dict] = []
     last_visit: datetime | None = None
+
+class DoctorProfileUpdate(BaseModel):
+    specialization: str | None = None
+    experience_years: int | None = None
+    consultation_fee: float | None = None
+    hospital: str | None = None
+    city: str | None = None
+    about: str | None = None
+    # e.g., {"Monday": ["09:00 AM", "09:30 AM"], "Tuesday": []}
+    availability: dict[str, list[str]] | None = None
+
+class DoctorProfileResponse(BaseModel):
+    id: str = Field(alias="_id")
+    full_name: str
+    specialization: str | None = None
+    experience_years: int | None = None
+    consultation_fee: float | None = None
+    hospital: str | None = None
+    city: str | None = None
+    about: str | None = None
+    
+    # Dynamic fields calculated on the fly
+    available_dates: list[str] = []
+    time_slots_by_date: dict[str, list[str]] = {}

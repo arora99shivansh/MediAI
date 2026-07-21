@@ -18,7 +18,7 @@ class AppointmentService:
             "doctor_id": data.doctor_id,
             "date": data.date,
             "slot": data.slot,
-            "status": {"$in": ["pending", "confirmed"]}
+            "status": {"$in": ["pending", "confirmed", "pending_payment"]}
         })
         if existing:
             raise HTTPException(status_code=400, detail="Slot already booked")
