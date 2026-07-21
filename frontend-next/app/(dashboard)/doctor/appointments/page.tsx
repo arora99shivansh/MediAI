@@ -88,14 +88,20 @@ export default function DoctorAppointments() {
                 
                 <div className="flex flex-col items-end gap-3 w-full md:w-auto">
                   {appt.status === "pending" || appt.status === "pending_payment" ? (
-                    <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Pending Confirmation</span>
+                    <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold uppercase">
+                      {appt.status === "pending_payment" ? "Awaiting Payment" : "Pending Confirmation"}
+                    </span>
                   ) : appt.status === "confirmed" ? (
                     <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Confirmed</span>
                   ) : (
                     <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-xs font-bold uppercase">{appt.status}</span>
                   )}
 
-                  {(appt.status === "pending" || appt.status === "pending_payment") && (
+                  {appt.status === "pending_payment" && (
+                    <p className="text-xs text-slate-500">The patient has not completed payment yet.</p>
+                  )}
+
+                  {appt.status === "pending" && (
                     <div className="flex gap-2 w-full sm:w-auto">
                       <button 
                         onClick={() => handleUpdateStatus(appt.id, "confirmed")}

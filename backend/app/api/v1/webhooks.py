@@ -5,6 +5,7 @@ import logging
 
 from app.database.mongo import get_db
 from app.api.v1.websocket import manager
+from app.services.payment_service import PaymentService
 
 logger = logging.getLogger("mediai.webhooks")
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
@@ -39,3 +40,12 @@ async def ingest_vitals(payload: VitalPayload, request: Request):
     await manager.broadcast_vital(payload.patient_id, doc)
     
     return {"status": "success", "message": "Vital synced and broadcasted"}
+
+
+@router.post("/stripe")
+async def stripe_webhook(request: Request):
+    db_gen = get_db()
+    db = await db_gen.__anext__()
+    payload = await request.body()
+    signature = request.headers.get("Stripe-Signature")
+    return await PaymentService(db).handle_stripe_webhook(payload, signature)

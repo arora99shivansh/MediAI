@@ -14,7 +14,10 @@ class AppointmentResponse(BaseModel):
     date: str
     slot: str
     status: str
+    payment_status: Optional[str] = None
     payment_id: Optional[str] = None
+    fee_amount: Optional[int] = None
+    currency: Optional[str] = None
     meeting_link: Optional[str] = None
     created_at: datetime
     
@@ -24,3 +27,11 @@ class AppointmentResponse(BaseModel):
 
 class AppointmentStatusUpdate(BaseModel):
     status: str # "confirmed", "rejected", "cancelled"
+
+
+class VideoSessionResponse(BaseModel):
+    provider: str
+    room_name: str
+    room_url: str
+    token: str
+    expires_at: datetime

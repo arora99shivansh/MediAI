@@ -1,18 +1,52 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Calendar, Clock, MapPin, Search } from "lucide-react";
 import Link from "next/link";
 import api from "@/lib/api";
 import { format } from "date-fns";
 
+type Appointment = {
+  id: string;
+  doctor_name?: string;
+  date: string;
+  slot: string;
+  status: string;
+  payment_status?: string;
+};
+
 export default function PatientAppointments() {
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const searchParams = useSearchParams();
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [banner, setBanner] = useState("");
+  const [bannerTone, setBannerTone] = useState<"success" | "warning">("success");
 
   useEffect(() => {
-    fetchAppointments();
-  }, []);
+    const sessionId = searchParams.get("session_id");
+    const paymentState = searchParams.get("payment");
+
+    const load = async () => {
+      if (sessionId) {
+        try {
+          const res = await api.get(`/payments/checkout-session/${sessionId}`);
+          if (res.data.payment_status === "paid") {
+            setBanner("Payment received. Your appointment is now waiting for doctor confirmation.");
+            setBannerTone("success");
+          }
+        } catch (error) {
+          console.error("Unable to reconcile payment session", error);
+        }
+      } else if (paymentState === "cancelled") {
+        setBanner("Checkout was cancelled. Your appointment is still pending payment.");
+        setBannerTone("warning");
+      }
+      await fetchAppointments();
+    };
+
+    void load();
+  }, [searchParams]);
 
   const fetchAppointments = async () => {
     try {
@@ -29,6 +63,7 @@ export default function PatientAppointments() {
     switch(status) {
       case "confirmed": return <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Confirmed</span>;
       case "pending_payment": return <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Pending Payment</span>;
+      case "pending": return <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Awaiting Doctor</span>;
       case "cancelled": return <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Cancelled</span>;
       default: return <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-xs font-bold uppercase">{status}</span>;
     }
@@ -49,6 +84,12 @@ export default function PatientAppointments() {
         </Link>
       </div>
 
+      {banner && (
+        <div className={`rounded-2xl border p-4 text-sm font-medium ${bannerTone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+          {banner}
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-slate-500">Loading appointments...</div>
@@ -61,7 +102,7 @@ export default function PatientAppointments() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {appointments.map(appt => (
+            {appointments.map((appt) => (
               <div key={appt.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 hover:bg-slate-50 transition-colors">
                 <div className="flex items-start gap-5">
                   <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl font-bold border border-blue-100 flex-shrink-0">
@@ -85,6 +126,12 @@ export default function PatientAppointments() {
                 
                 <div className="flex flex-col items-end gap-3 w-full sm:w-auto">
                   {getStatusBadge(appt.status)}
+                  {appt.status === "pending_payment" && (
+                    <span className="text-xs text-slate-500">Payment still required before the doctor can review this booking.</span>
+                  )}
+                  {appt.status === "pending" && (
+                    <span className="text-xs text-slate-500">Paid and waiting for doctor approval.</span>
+                  )}
                   {appt.status === "confirmed" && (
                     <Link href={`/video/${appt.id}`} className="w-full sm:w-auto bg-slate-900 hover:bg-black text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors text-center inline-block">
                       Join Video Call

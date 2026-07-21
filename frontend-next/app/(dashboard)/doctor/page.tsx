@@ -103,7 +103,7 @@ export default function DoctorDashboard() {
                       <p className="text-sm font-medium text-slate-900">{appt.slot}</p>
                       <p className="text-xs text-amber-600 font-medium">Waiting</p>
                     </div>
-                    <Link href={`/video/${appt._id}`} className="text-slate-400 hover:text-blue-600 transition-colors" title="Join Video">
+                    <Link href={`/video/${appt.id}`} className="text-slate-400 hover:text-blue-600 transition-colors" title="Join Video">
                       <Video className="w-5 h-5" />
                     </Link>
                   </div>

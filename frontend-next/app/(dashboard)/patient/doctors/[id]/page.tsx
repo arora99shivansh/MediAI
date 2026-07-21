@@ -5,20 +5,28 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, MapPin, Star, Calendar, Clock, CreditCard, ShieldCheck } from "lucide-react";
 import api from "@/lib/api";
 
+type DoctorProfile = {
+  _id: string;
+  full_name: string;
+  specialization?: string;
+  city?: string;
+  about?: string;
+  consultation_fee?: number;
+  available_dates?: string[];
+  time_slots_by_date?: Record<string, string[]>;
+};
+
 export default function DoctorBookingProfile() {
   const params = useParams();
   const router = useRouter();
-  const [doctor, setDoctor] = useState<any>(null);
+  const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   
-  // Booking State
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedSlot, setSelectedSlot] = useState<string>("");
-  const [bookingStep, setBookingStep] = useState(1); // 1: Select slot, 2: Checkout, 3: Success
-  const [appointmentId, setAppointmentId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Available Dates and Slots will be derived from doctor profile response
   const availableDates = doctor?.available_dates || [];
   const timeSlots = selectedDate ? (doctor?.time_slots_by_date?.[selectedDate] || []) : [];
 
@@ -32,6 +40,7 @@ export default function DoctorBookingProfile() {
       setDoctor(res.data);
     } catch (error) {
       console.error(error);
+      setError("Unable to load doctor profile.");
     } finally {
       setLoading(false);
     }
@@ -40,47 +49,29 @@ export default function DoctorBookingProfile() {
   const handleBook = async () => {
     if (!selectedDate || !selectedSlot) return;
     setIsProcessing(true);
+    setError("");
     try {
       const res = await api.post("/appointments/book", {
         doctor_id: params.id,
         date: selectedDate,
         slot: selectedSlot
       });
-      setAppointmentId(res.data._id);
-      setBookingStep(2); // Move to checkout
+
+      const checkoutRes = await api.post("/payments/checkout-session", {
+        appointment_id: res.data.id,
+      });
+
+      window.location.href = checkoutRes.data.checkout_url;
     } catch (error) {
       console.error("Booking failed", error);
-      alert("Failed to book slot. It might be already taken.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleCheckout = async () => {
-    if (!appointmentId) return;
-    setIsProcessing(true);
-    try {
-      // 1. Create Payment Intent
-      const intentRes = await api.post(`/payments/intent?amount=${doctor.consultation_fee || 50}&appointment_id=${appointmentId}`);
-      const paymentId = intentRes.data.payment_id;
-      
-      // 2. Mock Stripe Checkout success -> Confirm Payment
-      await api.post("/payments/confirm", {
-        payment_id: paymentId,
-        appointment_id: appointmentId
-      });
-      
-      setBookingStep(3); // Success
-    } catch (error) {
-      console.error("Payment failed", error);
-      alert("Payment processing failed.");
+      setError("We could not reserve this slot. It may have already been booked.");
     } finally {
       setIsProcessing(false);
     }
   };
 
   if (loading) return <div className="text-center p-12 text-slate-500">Loading profile...</div>;
-  if (!doctor) return <div className="text-center p-12 text-red-500">Doctor not found</div>;
+  if (!doctor) return <div className="text-center p-12 text-red-500">{error || "Doctor not found"}</div>;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
@@ -127,116 +118,75 @@ export default function DoctorBookingProfile() {
         {/* Booking & Checkout Widget */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6 sticky top-6">
-            
-            {bookingStep === 1 && (
-              <>
-                <h3 className="text-lg font-bold text-slate-900 mb-4">Book Appointment</h3>
-                <div className="flex items-center justify-between mb-6 pb-6 border-b border-slate-100">
-                  <span className="text-slate-500">Consultation Fee</span>
-                  <span className="text-xl font-bold text-slate-900">${doctor.consultation_fee || 50}</span>
-                </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Book Appointment</h3>
+            <div className="flex items-center justify-between mb-6 pb-6 border-b border-slate-100">
+              <span className="text-slate-500">Consultation Fee</span>
+              <span className="text-xl font-bold text-slate-900">${doctor.consultation_fee || 50}</span>
+            </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                      <Calendar className="w-4 h-4" /> Select Date
-                    </label>
-                    <select 
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none"
-                    >
-                      <option value="">Choose a date...</option>
-                      {availableDates.map((d: string) => (
-                        <option key={d} value={d}>{d}</option>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" /> Select Date
+                </label>
+                <select 
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none"
+                >
+                  <option value="">Choose a date...</option>
+                  {availableDates.map((d: string) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedDate && (
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2 mt-4">
+                    <Clock className="w-4 h-4" /> Available Slots
+                  </label>
+                  {timeSlots.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {timeSlots.map((slot: string) => (
+                        <button
+                          key={slot}
+                          onClick={() => setSelectedSlot(slot)}
+                          className={`p-2 rounded-lg text-sm font-medium border transition-colors ${
+                            selectedSlot === slot 
+                              ? "bg-blue-600 border-blue-600 text-white" 
+                              : "bg-white border-slate-200 text-slate-700 hover:border-blue-500"
+                          }`}
+                        >
+                          {slot}
+                        </button>
                       ))}
-                    </select>
-                  </div>
-
-                  {selectedDate && (
-                    <div>
-                      <label className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2 mt-4">
-                        <Clock className="w-4 h-4" /> Available Slots
-                      </label>
-                      {timeSlots.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          {timeSlots.map((slot: string) => (
-                            <button
-                              key={slot}
-                              onClick={() => setSelectedSlot(slot)}
-                              className={`p-2 rounded-lg text-sm font-medium border transition-colors ${
-                                selectedSlot === slot 
-                                  ? "bg-blue-600 border-blue-600 text-white" 
-                                  : "bg-white border-slate-200 text-slate-700 hover:border-blue-500"
-                              }`}
-                            >
-                              {slot}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-red-500">No slots available for this date.</p>
-                      )}
                     </div>
+                  ) : (
+                    <p className="text-sm text-red-500">No slots available for this date.</p>
                   )}
-
-                  <button
-                    onClick={handleBook}
-                    disabled={!selectedDate || !selectedSlot || isProcessing}
-                    className="w-full mt-6 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors"
-                  >
-                    {isProcessing ? "Booking..." : "Continue to Payment"}
-                  </button>
                 </div>
-              </>
-            )}
+              )}
 
-            {bookingStep === 2 && (
-              <div className="text-center py-4">
-                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CreditCard className="w-8 h-8" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-900">Secure Checkout</h3>
-                <p className="text-slate-500 text-sm mt-2 mb-6">You are booking a consultation on <b>{selectedDate}</b> at <b>{selectedSlot}</b> for <b>${doctor.consultation_fee || 50}</b>.</p>
-                
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 text-left">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Test Payment Gateway</p>
-                  <p className="text-sm text-slate-600">This simulates a Stripe checkout. No real card needed.</p>
-                </div>
-
-                <button
-                  onClick={handleCheckout}
-                  disabled={isProcessing}
-                  className="w-full bg-slate-900 hover:bg-black text-white py-3 rounded-xl font-bold transition-colors shadow-md flex justify-center items-center gap-2"
-                >
-                  {isProcessing ? "Processing..." : `Pay $${doctor.consultation_fee || 50}`}
-                </button>
-                <button
-                  onClick={() => setBookingStep(1)}
-                  className="w-full mt-3 text-slate-500 hover:text-slate-800 text-sm font-medium"
-                >
-                  Cancel
-                </button>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                Stripe-hosted checkout will open after you reserve the slot. Your appointment moves to doctor review once payment succeeds.
               </div>
-            )}
 
-            {bookingStep === 3 && (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <ShieldCheck className="w-8 h-8" />
+              {error && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {error}
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900">Booking Confirmed!</h3>
-                <p className="text-slate-500 mt-2">Your payment was successful and the appointment is booked.</p>
-                
-                <button
-                  onClick={() => router.push("/patient/appointments")}
-                  className="mt-8 bg-blue-50 text-blue-700 hover:bg-blue-100 px-6 py-2.5 rounded-lg font-medium transition-colors"
-                >
-                  View My Appointments
-                </button>
-              </div>
-            )}
+              )}
 
+              <button
+                onClick={handleBook}
+                disabled={!selectedDate || !selectedSlot || isProcessing}
+                className="w-full mt-6 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
+              >
+                <CreditCard className="w-4 h-4" />
+                {isProcessing ? "Redirecting to Checkout..." : "Continue to Secure Payment"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

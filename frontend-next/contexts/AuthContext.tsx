@@ -17,11 +17,28 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (access: string, refresh: string, role: string) => void;
+  login: (access: string, refresh: string, role: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function clearSessionCookies() {
+  Cookies.remove('access_token');
+  Cookies.remove('refresh_token');
+  Cookies.remove('user_role');
+}
+
+function mapUser(payload: Partial<User>): User {
+  return {
+    id: payload._id || payload.id || '',
+    _id: payload._id || payload.id || '',
+    email: payload.email || '',
+    full_name: payload.full_name || 'User',
+    role: (payload.role || 'patient') as User['role'],
+    created_at: payload.created_at || new Date().toISOString(),
+  };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -29,51 +46,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const token = Cookies.get('access_token');
-    const role = Cookies.get('user_role');
-    
-    if (token && role) {
-      // Try to fetch real user data
-      api.get('/auth/me')
-        .then(res => {
-          setUser({
-            id: res.data._id || res.data.id || 'temp-id',
-            _id: res.data._id || res.data.id || 'temp-id',
-            email: res.data.email,
-            full_name: res.data.full_name || 'User',
-            role: role as 'patient' | 'doctor' | 'admin',
-            created_at: res.data.created_at || new Date().toISOString()
-          });
-        })
-        .catch(() => {
-          // If /me fails, use basic info from cookies
-          setUser({
-            id: 'temp-id',
-            _id: 'temp-id',
-            email: 'user@example.com',
-            full_name: 'Authenticated User',
-            role: role as 'patient' | 'doctor',
-            created_at: new Date().toISOString()
-          });
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    let active = true;
+
+    const initializeAuth = async () => {
+      const token = Cookies.get('access_token');
+      const role = Cookies.get('user_role');
+
+      if (!token || !role) {
+        if (active) {
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const res = await api.get('/auth/me');
+        if (active) {
+          setUser(mapUser({ ...res.data, role: res.data.role || role }));
+        }
+      } catch {
+        clearSessionCookies();
+        if (active) {
+          setUser(null);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void initializeAuth();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const login = (access: string, refresh: string, role: string) => {
+  const login = async (access: string, refresh: string, role: string) => {
     Cookies.set('access_token', access);
     Cookies.set('refresh_token', refresh);
     Cookies.set('user_role', role);
-    setUser({
-      id: 'temp-id',
-      _id: 'temp-id',
-      email: 'user@example.com',
-      full_name: 'Authenticated User',
-      role: role as 'patient' | 'doctor',
-      created_at: new Date().toISOString()
-    });
+
+    setLoading(true);
+    try {
+      const res = await api.get('/auth/me');
+      setUser(mapUser({ ...res.data, role: res.data.role || role }));
+    } catch (error) {
+      clearSessionCookies();
+      setUser(null);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+
     router.push(`/${role}`);
   };
 
@@ -86,9 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error("Logout failed", e);
     } finally {
-      Cookies.remove('access_token');
-      Cookies.remove('refresh_token');
-      Cookies.remove('user_role');
+      clearSessionCookies();
       setUser(null);
       router.push('/login');
     }

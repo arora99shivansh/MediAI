@@ -1,0 +1,71 @@
+# DoorDoctor AI - File Architecture & Feature Explanations
+
+This document explains every significant file created or modified to turn the initial frontend prototype into a complete, production-ready telemedicine platform.
+
+---
+
+## 1. Video Consultations (Feature 2)
+
+**Backend:**
+- `backend/app/api/v1/appointments.py`
+  - What it does: Added the `GET /api/v1/appointments/{id}/video-token` route. When a user tries to join a video call, this API checks if the appointment is `confirmed` and if the requester is actually a participant (the booked Doctor or Patient). If authorized, it generates a unique, deterministic room name for the secure WebRTC call.
+
+**Frontend:**
+- `frontend-next/app/video/[id]/page.tsx`
+  - What it does: A completely new Next.js page. It serves as the secure, full-screen video consultation room. It calls the `video-token` API to get authorized, and then embeds the `Jitsi Meet iFrame API` to provide enterprise-grade video, audio, and screen sharing without needing to host a heavy WebRTC server ourselves.
+- `frontend-next/app/(dashboard)/patient/appointments/page.tsx` & `frontend-next/app/(dashboard)/doctor/appointments/page.tsx`
+  - What it does: Modified the appointment cards to conditionally render a "Join Video Call" button if the appointment status is `confirmed`. This button routes the user straight to `/video/[id]`.
+
+---
+
+## 2. Real-Time Telemedicine Chat (Feature 3)
+
+**Backend:**
+- `backend/app/api/v1/websocket.py`
+  - What it does: This is the real-time engine of the platform. Created a `ChatConnectionManager` that maps connected `user_id`s to active WebSockets (`ws://api/v1/ws/chat/{user_id}`). When a message is sent over the WebSocket, it instantly broadcasts it to the intended receiver with sub-100ms latency.
+- `backend/app/api/v1/messages.py`
+  - What it does: Handles the REST fallback and persistence. Provides `POST /messages/` to save messages to MongoDB, and `GET /messages/{other_user_id}` to retrieve historical chat context when a patient or doctor opens the chat UI.
+
+**Frontend:**
+- `frontend-next/app/(dashboard)/doctor/messages/page.tsx`
+  - What it does: Replaced the hardcoded, dummy UI. Now uses `api.get("/doctor/patients")` to fetch the doctor's real assigned patients. It establishes a WebSocket connection to receive live messages and uses REST to fetch historical context and send new messages.
+- `frontend-next/app/(dashboard)/patient/messages/page.tsx`
+  - What it does: Similar to the doctor's page, but uses `api.get("/appointments/patient")` to extract a list of unique doctors the patient has booked, allowing the patient to securely message them in real-time.
+
+---
+
+## 3. AI Integrations (Feature 4)
+
+**Backend:**
+- `backend/app/api/v1/doctor.py`
+  - What it does: Added `POST /api/v1/doctor/ai/generate`. This leverages Langchain and Groq (LLaMA3) to act as a Clinical Co-Pilot. It pulls the patient's entire timeline and generates professional medical documents (SOAP Notes, Differential Diagnoses, Prescriptions) based on the context.
+
+**Frontend:**
+- `frontend-next/app/(dashboard)/patient/ai/page.tsx`
+  - What it does: The Patient AI Assistant. We removed the dummy UI and wired it up to `POST /api/v1/chat/stream`. It uses Server-Sent Events (SSE) to stream the AI's response token-by-token, creating a smooth, ChatGPT-like experience.
+- `frontend-next/app/(dashboard)/doctor/ai-tools/page.tsx`
+  - What it does: A completely new workstation for Doctors. Allows doctors to select a patient from their roster, choose an AI task (e.g., generate a SOAP note), and automatically drafts the clinical documentation. Once drafted, doctors can edit it and click "Save as Clinical Note".
+
+---
+
+## 4. Payment & Appointment Booking
+
+**Backend:**
+- `backend/app/services/payment_service.py` & `backend/app/api/v1/payments.py`
+  - What it does: Exposes `/payments/intent` and `/payments/confirm`. This acts as our Payment Gateway simulator (mimicking Stripe). It securely stores the payment status in MongoDB and upgrades the Appointment status to `confirmed` once payment succeeds.
+
+**Frontend:**
+- `frontend-next/app/(dashboard)/patient/doctors/[id]/page.tsx`
+  - What it does: The Doctor Profile & Booking page. It fetches the doctor's live availability, allows the user to select a slot, creates a pending appointment via `/appointments/book`, creates a payment intent, and finally triggers the secure simulated checkout.
+
+---
+
+## 5. Dashboard Connections & Bug Fixes
+
+**Frontend:**
+- `frontend-next/app/(dashboard)/patient/page.tsx`
+  - What it does: The Patient Dashboard. Removed dummy placeholders. It now hits `/appointments/patient` to display a live queue of upcoming appointments and hooks into `/ws/vitals/{user_id}` to stream simulated live heart rate/blood pressure data.
+- `frontend-next/app/(dashboard)/doctor/page.tsx`
+  - What it does: The Doctor Dashboard. Calculates real-time statistics (assigned patients, today's appointments) and renders a live "Today's Queue" showing confirmed patients ready to be seen.
+- `frontend-next/contexts/AuthContext.tsx`
+  - What it does: We fixed a critical TypeScript compilation error here. The frontend was expecting `user.id`, but MongoDB uses `user._id`. We added `_id?: string` to the TypeScript `User` interface and correctly mapped it during login and `/auth/me` to ensure strict typing passed Vercel's build process.

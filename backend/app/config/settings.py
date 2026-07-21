@@ -32,6 +32,22 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:8501,http://127.0.0.1:8501,http://localhost:3000,https://medi-ai-ochre-nine.vercel.app,https://medi-ai-git-main-arora99shivanshs-projects.vercel.app,https://medi-4djx752kz-arora99shivanshs-projects.vercel.app"
     rate_limit: str = "120/minute"
+    frontend_app_url: str = "http://localhost:3000"
+
+    payment_provider: str = "stripe"
+    default_currency: str = "usd"
+    stripe_secret_key: str | None = None
+    stripe_publishable_key: str | None = None
+    stripe_webhook_secret: str | None = None
+    stripe_api_base_url: str = "https://api.stripe.com/v1"
+
+    video_provider: str = "daily"
+    daily_api_key: str | None = None
+    daily_domain: str | None = None
+    daily_domain_id: str | None = None
+    daily_api_base_url: str = "https://api.daily.co/v1"
+    consultation_duration_minutes: int = 30
+    refund_window_hours: int = 24
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

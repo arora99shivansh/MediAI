@@ -30,7 +30,6 @@ export default function LoginPage() {
     setIsLoading(true);
     setError(null);
     try {
-      // Decode JWT token payload to get role (simple base64 decode for the payload)
       const res = await api.post("/auth/login", {
         email: data.email,
         password: data.password
@@ -39,13 +38,13 @@ export default function LoginPage() {
       const access = res.data.access_token;
       const refresh = res.data.refresh_token;
       
-      // Parse role from token (in a real app, backend could return it, but FastAPI usually embeds it in JWT)
       const payload = JSON.parse(atob(access.split('.')[1]));
       const role = payload.role || 'patient';
       
-      login(access, refresh, role);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Invalid email or password");
+      await login(access, refresh, role);
+    } catch (err: unknown) {
+      const apiError = err as { response?: { data?: { detail?: string } } };
+      setError(apiError.response?.data?.detail || "Invalid email or password");
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +102,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-sm text-slate-400 mt-8">
-          Don't have an account? <Link href="/register" className="text-blue-400 hover:text-blue-300 font-medium">Create one</Link>
+          Do not have an account? <Link href="/register" className="text-blue-400 hover:text-blue-300 font-medium">Create one</Link>
         </p>
       </div>
     </div>

@@ -28,6 +28,11 @@ async def connect_to_mongo() -> None:
         await db.sessions.create_index("expires_at", expireAfterSeconds=0)
         await db.analytics.create_index([("event", 1), ("created_at", -1)])
         await db.logs.create_index("created_at")
+        await db.payments.create_index([("appointment_id", 1), ("created_at", -1)])
+        await db.payments.create_index("provider_session_id", unique=True, sparse=True)
+        await db.payments.create_index("provider_payment_id", unique=True, sparse=True)
+        await db.appointments.create_index([("doctor_id", 1), ("date", 1), ("slot", 1), ("status", 1)])
+        await db.appointments.create_index([("patient_id", 1), ("created_at", -1)])
 
         # New Health OS Collections
         await db.health_memory.create_index([("user_id", 1), ("created_at", -1)])
