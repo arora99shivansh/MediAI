@@ -40,7 +40,8 @@ export default function PatientAIChat() {
 
     try {
       const token = Cookies.get('access_token');
-      const response = await fetch("http://localhost:8000/api/v1/chat/stream", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      const response = await fetch(`${apiUrl}/chat/stream`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut, LayoutDashboard, Users, MessageSquare, ClipboardList, TrendingUp, Settings, FileText } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, MessageSquare, ClipboardList, TrendingUp, Settings, FileText, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -15,6 +15,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     { name: "Appointments", href: "/doctor/appointments", icon: ClipboardList },
     { name: "Messages", href: "/doctor/messages", icon: MessageSquare },
     { name: "Reports", href: "/doctor/reports", icon: FileText },
+    { name: "AI Tools", href: "/doctor/ai-tools", icon: Sparkles },
     { name: "Analytics", href: "/doctor/analytics", icon: TrendingUp },
     { name: "Settings", href: "/doctor/settings", icon: Settings },
   ];

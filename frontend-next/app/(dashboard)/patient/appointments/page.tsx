@@ -86,7 +86,7 @@ export default function PatientAppointments() {
                 <div className="flex flex-col items-end gap-3 w-full sm:w-auto">
                   {getStatusBadge(appt.status)}
                   {appt.status === "confirmed" && (
-                    <Link href={`/consultation/${appt.id}`} className="w-full sm:w-auto bg-slate-900 hover:bg-black text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors text-center inline-block">
+                    <Link href={`/video/${appt.id}`} className="w-full sm:w-auto bg-slate-900 hover:bg-black text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors text-center inline-block">
                       Join Video Call
                     </Link>
                   )}

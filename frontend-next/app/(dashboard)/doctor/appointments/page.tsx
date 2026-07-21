@@ -115,7 +115,7 @@ export default function DoctorAppointments() {
                   )}
 
                   {appt.status === "confirmed" && (
-                    <Link href={`/consultation/${appt.id}`} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors text-center inline-block">
+                    <Link href={`/video/${appt.id}`} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors text-center inline-block">
                       Start Consultation
                     </Link>
                   )}
