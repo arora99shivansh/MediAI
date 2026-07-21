@@ -33,9 +33,11 @@ export default function LandingPage() {
             <Link href="/login" className="text-sm font-medium hover:text-white transition-colors hidden md:block">
               Log in
             </Link>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6">
-              Book Appointment
-            </Button>
+            <Link href="/login">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6">
+                Book Appointment
+              </Button>
+            </Link>
           </div>
         </div>
       </nav>
@@ -67,12 +69,16 @@ export default function LandingPage() {
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button size="lg" className="h-14 px-8 text-base bg-blue-600 hover:bg-blue-700 rounded-full w-full sm:w-auto gap-2">
-                Find a Doctor <ArrowRight className="w-4 h-4" />
-              </Button>
-              <Button size="lg" variant="outline" className="h-14 px-8 text-base rounded-full w-full sm:w-auto bg-white/5 border-white/10 hover:bg-white/10 text-white">
-                Try AI Co-Pilot
-              </Button>
+              <Link href="/login">
+                <Button size="lg" className="h-14 px-8 text-base bg-blue-600 hover:bg-blue-700 rounded-full w-full sm:w-auto gap-2">
+                  Find a Doctor <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+              <Link href="/login">
+                <Button size="lg" variant="outline" className="h-14 px-8 text-base rounded-full w-full sm:w-auto bg-white/5 border-white/10 hover:bg-white/10 text-white">
+                  Try AI Co-Pilot
+                </Button>
+              </Link>
             </div>
           </motion.div>
         </div>
@@ -176,9 +182,11 @@ export default function LandingPage() {
         <div className="container mx-auto max-w-4xl text-center">
           <h2 className="text-4xl md:text-5xl font-bold mb-8">Ready to transform your health?</h2>
           <p className="text-xl text-slate-400 mb-10">Join thousands of patients taking control of their medical records with the power of DoorDoctor AI.</p>
-          <Button size="lg" className="h-14 px-8 text-base bg-white text-black hover:bg-slate-200 rounded-full">
-            Create Free Account
-          </Button>
+          <Link href="/register">
+            <Button size="lg" className="h-14 px-8 text-base bg-white text-black hover:bg-slate-200 rounded-full">
+              Create Free Account
+            </Button>
+          </Link>
         </div>
       </section>
 

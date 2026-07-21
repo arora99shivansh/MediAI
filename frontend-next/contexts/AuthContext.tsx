@@ -28,21 +28,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // In a real implementation, we might hit a /me endpoint here
-    // For now, if we have a token, we assume logged in, and we can store role in cookie
     const token = Cookies.get('access_token');
     const role = Cookies.get('user_role');
     
     if (token && role) {
-      setUser({
-        id: 'temp-id',
-        email: 'user@example.com',
-        full_name: 'Authenticated User',
-        role: role as 'patient' | 'doctor',
-        created_at: new Date().toISOString()
-      });
+      // Try to fetch real user data
+      api.get('/auth/me')
+        .then(res => {
+          setUser({
+            id: res.data._id || res.data.id || 'temp-id',
+            email: res.data.email,
+            full_name: res.data.full_name || 'User',
+            role: role as 'patient' | 'doctor' | 'admin',
+            created_at: res.data.created_at || new Date().toISOString()
+          });
+        })
+        .catch(() => {
+          // If /me fails, use basic info from cookies
+          setUser({
+            id: 'temp-id',
+            email: 'user@example.com',
+            full_name: 'Authenticated User',
+            role: role as 'patient' | 'doctor',
+            created_at: new Date().toISOString()
+          });
+        })
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const login = (access: string, refresh: string, role: string) => {
