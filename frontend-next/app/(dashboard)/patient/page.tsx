@@ -1,14 +1,48 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { Activity, HeartPulse, Stethoscope, Calendar, ArrowRight, ShieldCheck } from "lucide-react";
+import { Activity, HeartPulse, Stethoscope, Calendar, ArrowRight, ShieldCheck, Video } from "lucide-react";
 import Link from "next/link";
+import { useState, useEffect } from "react";
+import api from "@/lib/api";
 
 export default function PatientDashboard() {
   const { user } = useAuth();
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [vitals, setVitals] = useState<any>({ heart_rate: 72, blood_pressure: "120/80" }); // Fallback if no WS data
+
+  useEffect(() => {
+    // Fetch upcoming appointments
+    const fetchAppointments = async () => {
+      try {
+        const res = await api.get("/appointments/patient");
+        // Filter for upcoming
+        const upcoming = res.data.filter((a: any) => new Date(a.date) >= new Date()).slice(0, 3);
+        setAppointments(upcoming);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchAppointments();
+
+    // Setup Vitals WebSocket
+    if (user?._id) {
+      const wsUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1').replace('http', 'ws') + `/ws/vitals/${user._id}`;
+      const ws = new WebSocket(wsUrl);
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === "VITAL_UPDATE") {
+          setVitals((prev: any) => ({ ...prev, ...data.data }));
+        }
+      };
+
+      return () => ws.close();
+    }
+  }, [user]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-8 pb-20">
       <div>
         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Good Morning, {user?.full_name?.split(' ')[0] || "Patient"}</h1>
         <p className="text-slate-500 mt-2">Here is a summary of your health data and upcoming appointments.</p>
@@ -55,21 +89,53 @@ export default function PatientDashboard() {
             <h3 className="font-bold text-slate-900 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-blue-500" /> Upcoming Appointments
             </h3>
-            <button className="text-sm font-medium text-blue-600 hover:text-blue-700">View all</button>
+            <Link href="/patient/appointments" className="text-sm font-medium text-blue-600 hover:text-blue-700">View all</Link>
           </div>
-          <div className="p-6 flex flex-col items-center justify-center text-center text-slate-500 py-12">
-            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-              <Calendar className="w-6 h-6 text-slate-400" />
-            </div>
-            <p className="font-medium">No upcoming appointments</p>
-            <p className="text-sm mt-1 mb-6">You don't have any visits scheduled.</p>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm">
-              Book a Consultation
-            </button>
+          <div className="p-6">
+            {appointments.length > 0 ? (
+              <div className="space-y-4">
+                {appointments.map((appt) => (
+                  <div key={appt._id} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white rounded-xl flex flex-col items-center justify-center border border-slate-200 shadow-sm">
+                        <span className="text-xs font-bold text-slate-500 uppercase">{new Date(appt.date).toLocaleString('default', { month: 'short' })}</span>
+                        <span className="text-lg font-bold text-blue-600 leading-none">{new Date(appt.date).getDate()}</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900">{appt.doctor_name}</h4>
+                        <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+                          <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {appt.slot}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {appt.status === "confirmed" && (
+                      <Link 
+                        href={`/video/${appt._id}`}
+                        className="bg-blue-50 text-blue-600 hover:bg-blue-100 p-2.5 rounded-lg transition-colors flex items-center justify-center"
+                        title="Join Video Call"
+                      >
+                        <Video className="w-5 h-5" />
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center text-slate-500 py-6">
+                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                  <Calendar className="w-6 h-6 text-slate-400" />
+                </div>
+                <p className="font-medium">No upcoming appointments</p>
+                <p className="text-sm mt-1 mb-6">You don't have any visits scheduled.</p>
+                <Link href="/patient/doctors" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm">
+                  Book a Consultation
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Recent Vitals */}
+        {/* Live Vitals */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex justify-between items-center">
             <h3 className="font-bold text-slate-900 flex items-center gap-2">
@@ -82,7 +148,6 @@ export default function PatientDashboard() {
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              {/* Dummy Vitals for now */}
               <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-rose-100 text-rose-500 flex items-center justify-center rounded-lg">
@@ -90,11 +155,11 @@ export default function PatientDashboard() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-900">Heart Rate</p>
-                    <p className="text-xs text-slate-500">2 mins ago</p>
+                    <p className="text-xs text-slate-500">Live</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-slate-900">72 <span className="text-sm text-slate-500 font-medium">bpm</span></p>
+                  <p className="text-lg font-bold text-slate-900">{vitals.heart_rate} <span className="text-sm text-slate-500 font-medium">bpm</span></p>
                   <p className="text-xs text-emerald-600 font-medium">Normal</p>
                 </div>
               </div>
@@ -105,11 +170,11 @@ export default function PatientDashboard() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-900">Blood Pressure</p>
-                    <p className="text-xs text-slate-500">1 hour ago</p>
+                    <p className="text-xs text-slate-500">Live</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-slate-900">120/80 <span className="text-sm text-slate-500 font-medium">mmHg</span></p>
+                  <p className="text-lg font-bold text-slate-900">{vitals.blood_pressure} <span className="text-sm text-slate-500 font-medium">mmHg</span></p>
                   <p className="text-xs text-emerald-600 font-medium">Normal</p>
                 </div>
               </div>
