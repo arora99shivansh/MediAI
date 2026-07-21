@@ -27,8 +27,24 @@ export default function DoctorBookingProfile() {
   const [selectedSlot, setSelectedSlot] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const availableDates = doctor?.available_dates || [];
-  const timeSlots = selectedDate ? (doctor?.time_slots_by_date?.[selectedDate] || []) : [];
+  const getFallbackDates = () => {
+    const dates = [];
+    const slots: Record<string, string[]> = {};
+    for (let i = 1; i <= 3; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      dates.push(dateStr);
+      slots[dateStr] = ["09:00 AM", "10:00 AM", "02:00 PM", "04:00 PM"];
+    }
+    return { dates, slots };
+  };
+
+  const fallbacks = getFallbackDates();
+  const availableDates = doctor?.available_dates?.length ? doctor.available_dates : fallbacks.dates;
+  const timeSlots = selectedDate 
+    ? (doctor?.time_slots_by_date?.[selectedDate] || fallbacks.slots[selectedDate] || []) 
+    : [];
 
   useEffect(() => {
     if (params.id) fetchDoctor();
