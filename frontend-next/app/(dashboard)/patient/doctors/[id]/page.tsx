@@ -147,7 +147,7 @@ export default function DoctorBookingProfile() {
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none"
                     >
                       <option value="">Choose a date...</option>
-                      {availableDates.map(d => (
+                      {availableDates.map((d: string) => (
                         <option key={d} value={d}>{d}</option>
                       ))}
                     </select>
