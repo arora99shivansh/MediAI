@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { Users, ClipboardList, Activity, AlertCircle, Bot, ArrowRight, TrendingUp } from "lucide-react";
+import Link from "next/link";
 
 export default function DoctorDashboard() {
   const { user } = useAuth();
@@ -14,12 +15,12 @@ export default function DoctorDashboard() {
           <p className="text-slate-500 mt-1">Here is the overview of your clinical practice today.</p>
         </div>
         <div className="flex gap-3">
-          <button className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors">
+          <Link href="/doctor/appointments" className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors">
             View Schedule
-          </button>
-          <button className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2">
+          </Link>
+          <Link href="/doctor/patients" className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2">
             <Bot className="w-4 h-4" /> Open AI Co-Pilot
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -79,7 +80,7 @@ export default function DoctorDashboard() {
             ))}
           </div>
           <div className="p-4 border-t border-slate-100 bg-slate-50/50 text-center">
-            <button className="text-sm font-medium text-blue-600 hover:text-blue-700">View Full Schedule</button>
+            <Link href="/doctor/appointments" className="text-sm font-medium text-blue-600 hover:text-blue-700">View Full Schedule</Link>
           </div>
         </div>
 
@@ -93,18 +94,18 @@ export default function DoctorDashboard() {
             <p className="text-xs text-slate-400">Powered by RAG & Medical LLMs</p>
           </div>
           <div className="p-6 flex-1 flex flex-col gap-3">
-            <button className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-between group">
+            <Link href="/doctor/patients" className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-between group">
               Generate SOAP Note
               <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
-            </button>
-            <button className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-between group">
+            </Link>
+            <Link href="/doctor/patients" className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-between group">
               Draft Prescription
               <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
-            </button>
-            <button className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-between group">
+            </Link>
+            <Link href="/doctor/patients" className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-between group">
               Summarize Recent Reports
               <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
-            </button>
+            </Link>
           </div>
         </div>
       </div>

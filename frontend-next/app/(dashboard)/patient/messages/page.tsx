@@ -4,6 +4,13 @@ import { useState } from "react";
 import { Search, Send, User, MoreVertical, Phone, Video } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
+type Message = {
+  id: number;
+  sender: "patient" | "doctor";
+  text: string;
+  time: string;
+};
+
 export default function PatientMessages() {
   const { user } = useAuth();
   
@@ -15,20 +22,35 @@ export default function PatientMessages() {
   
   const [activeChat, setActiveChat] = useState(conversations[0]);
   const [message, setMessage] = useState("");
-  const [chatHistory, setChatHistory] = useState([
-    { id: 1, sender: "doctor", text: "Hello! How are you feeling today after starting the new medication?", time: "10:15 AM" },
-    { id: 2, sender: "patient", text: "Hi Dr. Smith. I'm feeling a bit better, but I occasionally get a mild headache.", time: "10:20 AM" },
-    { id: 3, sender: "doctor", text: "That can be a common side effect in the first few days. Your recent test results look good otherwise.", time: "10:30 AM" },
-  ]);
+  
+  const [histories, setHistories] = useState<Record<number, Message[]>>({
+    1: [
+      { id: 1, sender: "doctor", text: "Hello! How are you feeling today after starting the new medication?", time: "10:15 AM" },
+      { id: 2, sender: "patient", text: "Hi Dr. Smith. I'm feeling a bit better, but I occasionally get a mild headache.", time: "10:20 AM" },
+      { id: 3, sender: "doctor", text: "That can be a common side effect in the first few days. Your recent test results look good otherwise.", time: "10:30 AM" },
+    ],
+    2: [
+      { id: 1, sender: "doctor", text: "Please make sure to stay hydrated.", time: "Yesterday" }
+    ]
+  });
+
+  const activeHistory = histories[activeChat.id] || [];
 
   const handleSend = () => {
     if (!message.trim()) return;
-    setChatHistory([...chatHistory, {
+    
+    const newMessage: Message = {
       id: Date.now(),
       sender: "patient",
       text: message,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }]);
+    };
+
+    setHistories(prev => ({
+      ...prev,
+      [activeChat.id]: [...(prev[activeChat.id] || []), newMessage]
+    }));
+    
     setMessage("");
   };
 
@@ -101,7 +123,7 @@ export default function PatientMessages() {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50 space-y-4">
-          {chatHistory.map(msg => {
+          {activeHistory.map(msg => {
             const isMe = msg.sender === "patient";
             return (
               <div key={msg.id} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
